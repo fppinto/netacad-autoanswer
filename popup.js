@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const apiKeyInput = document.getElementById("apiKey");
-  const geminiModelSelect = document.getElementById("geminiModel");
+  const claudeModelSelect = document.getElementById("claudeModel");
   const saveKeyButton = document.getElementById("saveKey");
   const processPageButton = document.getElementById("processPage");
   const statusDiv = document.getElementById("status");
@@ -9,25 +9,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   chrome.storage.sync.get(
     [
-      "geminiApiKey",
-      "geminiModel",
+      "anthropicApiKey",
+      "claudeModel",
       "showAnswers",
       "processOnSwitch",
     ],
     (result) => {
-      if (result.geminiApiKey) apiKeyInput.value = result.geminiApiKey;
-      if (result.geminiModel) {
+      if (result.anthropicApiKey) apiKeyInput.value = result.anthropicApiKey;
+      if (result.claudeModel) {
         // Make sure stored value exists in dropdown; if not, append it.
-        if (![...geminiModelSelect.options].some((o) => o.value === result.geminiModel)) {
+        if (![...claudeModelSelect.options].some((o) => o.value === result.claudeModel)) {
           const opt = document.createElement("option");
-          opt.value = result.geminiModel;
-          opt.textContent = result.geminiModel + " (custom)";
-          geminiModelSelect.appendChild(opt);
+          opt.value = result.claudeModel;
+          opt.textContent = result.claudeModel + " (custom)";
+          claudeModelSelect.appendChild(opt);
         }
-        geminiModelSelect.value = result.geminiModel;
+        claudeModelSelect.value = result.claudeModel;
       }
 
-      statusDiv.textContent = result.geminiApiKey ? "Settings loaded." : "API Key not set.";
+      statusDiv.textContent = result.anthropicApiKey ? "Settings loaded." : "API Key not set.";
 
       if (typeof result.showAnswers === "boolean") {
         showAnswersToggle.checked = result.showAnswers;
@@ -60,12 +60,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   saveKeyButton.addEventListener("click", () => {
     const apiKey = apiKeyInput.value.trim();
-    const model = geminiModelSelect.value;
+    const model = claudeModelSelect.value;
     if (!apiKey) {
-      statusDiv.textContent = "Please enter Gemini API Key.";
+      statusDiv.textContent = "Please enter Anthropic API Key.";
       return;
     }
-    chrome.storage.sync.set({ geminiApiKey: apiKey, geminiModel: model }, () => {
+    chrome.storage.sync.set({ anthropicApiKey: apiKey, claudeModel: model }, () => {
       statusDiv.textContent = "Settings saved!";
       setTimeout(() => (statusDiv.textContent = ""), 2000);
     });

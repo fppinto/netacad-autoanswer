@@ -1,22 +1,39 @@
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-
-function buildGeminiUrl(model) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-}
+const DEFAULT_CLAUDE_MODEL = "claude-haiku-4-5";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
 
 async function getProviderConfig() {
-  const stored = await chrome.storage.sync.get(["geminiApiKey", "geminiModel"]);
+  const stored = await chrome.storage.sync.get(["anthropicApiKey", "claudeModel"]);
   return {
-    apiKey: stored.geminiApiKey || "",
-    model: stored.geminiModel || DEFAULT_GEMINI_MODEL,
+    apiKey: stored.anthropicApiKey || "",
+    model: stored.claudeModel || DEFAULT_CLAUDE_MODEL,
   };
+}
+
+function anthropicHeaders(apiKey) {
+  return {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "anthropic-version": ANTHROPIC_VERSION,
+    // Required for direct requests from a browser/extension context (enables CORS).
+    "anthropic-dangerous-direct-browser-access": "true",
+  };
+}
+
+function extractText(data) {
+  if (!Array.isArray(data?.content)) return "";
+  return data.content
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text)
+    .join("")
+    .trim();
 }
 
 async function getAiAnswer(question, answers, apiKey) {
   const cfg = await getProviderConfig();
   const effectiveKey = apiKey || cfg.apiKey;
   if (!effectiveKey) {
-    return "Error: Gemini API Key not available. Please set it in the extension popup.";
+    return "Error: Anthropic API Key not available. Please set it in the extension popup.";
   }
 
   let prompt = `Given the following multiple-choice question and its possible answers, please choose the best answer(s).
@@ -34,30 +51,31 @@ Possible Answers:
   });
 
   try {
-    const response = await fetch(buildGeminiUrl(cfg.model), {
+    const response = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": effectiveKey,
-      },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      headers: anthropicHeaders(effectiveKey),
+      body: JSON.stringify({
+        model: cfg.model,
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }],
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error("Gemini API Error:", errorData);
-      return `Error calling Gemini API: ${response.status} ${response.statusText}.`;
+      console.error("Anthropic API Error:", errorData);
+      return `Error calling Anthropic API: ${response.status} ${response.statusText}.`;
     }
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = extractText(data);
     if (!text) {
-      console.error("Unexpected Gemini response:", data);
-      return "Error: Could not extract answer from Gemini response.";
+      console.error("Unexpected Anthropic response:", data);
+      return "Error: Could not extract answer from Claude response.";
     }
-    return text.trim();
+    return text;
   } catch (error) {
-    console.error("Error fetching from Gemini API:", error);
-    return "Error connecting to Gemini API. Check console.";
+    console.error("Error fetching from Anthropic API:", error);
+    return "Error connecting to Anthropic API. Check console.";
   }
 }
 
@@ -106,7 +124,7 @@ async function getAiAnswersForBatch(questionsDataArray, apiKey) {
   const cfg = await getProviderConfig();
   const effectiveKey = apiKey || cfg.apiKey;
   if (!effectiveKey) {
-    return { error: "Error: Gemini API Key not available. Please set it in the extension popup." };
+    return { error: "Error: Anthropic API Key not available. Please set it in the extension popup." };
   }
   if (!questionsDataArray || questionsDataArray.length === 0) {
     return { answers: [] };
@@ -115,34 +133,34 @@ async function getAiAnswersForBatch(questionsDataArray, apiKey) {
   const prompt = buildBatchPrompt(questionsDataArray);
 
   try {
-    const response = await fetch(buildGeminiUrl(cfg.model), {
+    const response = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": effectiveKey,
-      },
+      headers: anthropicHeaders(effectiveKey),
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
+        model: cfg.model,
+        max_tokens: 4096,
+        system:
+          "You are a precise answer-extraction assistant. You respond with only a JSON array of answer strings and nothing else.",
+        messages: [{ role: "user", content: prompt }],
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error("Gemini Batch Error:", errorData);
+      console.error("Anthropic Batch Error:", errorData);
       return {
-        error: `Error calling Gemini API: ${response.status} ${response.statusText}. Details: ${JSON.stringify(errorData)}`,
+        error: `Error calling Anthropic API: ${response.status} ${response.statusText}. Details: ${JSON.stringify(errorData)}`,
       };
     }
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = extractText(data);
     if (!text) {
-      console.error("Unexpected Gemini batch response:", data);
-      return { error: "Error: Could not extract answers from Gemini batch response." };
+      console.error("Unexpected Anthropic batch response:", data);
+      return { error: "Error: Could not extract answers from Claude batch response." };
     }
     return parseBatchAnswers(text, questionsDataArray.length);
   } catch (error) {
-    console.error("Error fetching from Gemini batch API:", error);
-    return { error: "Error connecting to Gemini API for batch. Check console." };
+    console.error("Error fetching from Anthropic batch API:", error);
+    return { error: "Error connecting to Anthropic API for batch. Check console." };
   }
 }

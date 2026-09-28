@@ -513,20 +513,25 @@ function injectUi(uiContainer, questionTextElement, mcqViewElement, uiContainerI
   return uiInjected;
 }
 
-function getFriendlyGeminiErrorMessage(errorString) {
-  // Handles known Gemini API error patterns
+function getFriendlyClaudeErrorMessage(errorString) {
+  // Handles known Anthropic (Claude) API error patterns
   if (!errorString) return null;
-  if (errorString.includes('503') && errorString.toLowerCase().includes('overload')) {
-    return 'AI Suggestion: Gemini API is overloaded. Please try again later.';
+  const lower = errorString.toLowerCase();
+  if (errorString.includes('529') || lower.includes('overload')) {
+    return 'AI Suggestion: Claude API is overloaded. Please try again later.';
   }
-  if (errorString.includes('503') && errorString.toLowerCase().includes('unavailable')) {
-    return 'AI Suggestion: Gemini API is currently unavailable (503). Please try again later.';
+  if (errorString.includes('500') || lower.includes('unavailable')) {
+    return 'AI Suggestion: Claude API is currently unavailable. Please try again later.';
   }
-  if (errorString.includes('quota')) {
-    return 'AI Suggestion: Gemini API quota exceeded. Please check your API usage or try again later.';
+  if (errorString.includes('429') || lower.includes('rate') || lower.includes('quota')) {
+    return 'AI Suggestion: Claude API rate limit exceeded. Please check your API usage or try again later.';
   }
-  if (errorString.includes('invalid') && errorString.toLowerCase().includes('key')) {
-    return 'AI Suggestion: Invalid Gemini API Key. Please check your key in the extension popup.';
+  if (
+    errorString.includes('401') ||
+    (lower.includes('invalid') && lower.includes('key')) ||
+    lower.includes('authentication')
+  ) {
+    return 'AI Suggestion: Invalid Anthropic API Key. Please check your key in the extension popup.';
   }
   // Add more patterns as needed
   return null;
@@ -563,11 +568,11 @@ async function handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDi
     return;
   }
 
-  aiAnswerDisplay.textContent = "Asking Gemini AI (single refresh)...";
+  aiAnswerDisplay.textContent = "Asking Claude AI (single refresh)...";
   console.debug(
     `NetAcad UI: refreshAction for Q${
       index + 1
-    }: Asking Gemini AI for question: "${questionText.substring(0, 50)}..."`
+    }: Asking Claude AI for question: "${questionText.substring(0, 50)}..."`
   );
   const rawAiResponse = await getAiAnswer(questionText, answerTexts, apiKey);
 
@@ -589,7 +594,7 @@ async function handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDi
     }
   } else if (rawAiResponse && rawAiResponse.toLowerCase().startsWith("error:")) {
     // Improved error handling
-    const friendlyMsg = getFriendlyGeminiErrorMessage(rawAiResponse);
+    const friendlyMsg = getFriendlyClaudeErrorMessage(rawAiResponse);
     if (friendlyMsg) {
       aiAnswerDisplay.textContent = friendlyMsg;
     } else {
@@ -671,7 +676,7 @@ async function processSingleQuestion(mcqViewElement, index, apiKey, preFetchedAi
   } else if (preFetchedAiAnswer) { // An actual answer or error string is provided
     if (preFetchedAiAnswer.toLowerCase().startsWith("error:")) {
       // Improved error handling
-      const friendlyMsg = getFriendlyGeminiErrorMessage(preFetchedAiAnswer);
+      const friendlyMsg = getFriendlyClaudeErrorMessage(preFetchedAiAnswer);
       if (friendlyMsg) {
         aiAnswerDisplay.textContent = friendlyMsg;
       } else {
@@ -701,7 +706,7 @@ async function processSingleQuestion(mcqViewElement, index, apiKey, preFetchedAi
       console.debug(`NetAcad UI: Q${index + 1} making individual call to AI (no pre-fetched answer).`);
       await handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDisplay, index);
     } else if (!apiKey && questionText !== "Question text not found" && !questionText.startsWith("Error:") && answerTexts.length > 0) {
-      aiAnswerDisplay.textContent = "Error: Gemini API Key not set in popup.";
+      aiAnswerDisplay.textContent = "Error: Anthropic API Key not set in popup.";
       console.warn(`NetAcad UI: Q${index + 1} cannot fetch AI answer - API key missing.`);
     } else {
       console.debug(`NetAcad UI: Q${index + 1} - Initial AI call skipped due to extraction issues or missing API key. Message: ${aiAnswerDisplay.textContent}`);

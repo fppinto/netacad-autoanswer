@@ -133,8 +133,8 @@ function injectFloatingButton() {
     btn.disabled = true;
     btn.textContent = "...";
     try {
-      const stored = await chrome.storage.sync.get(["geminiApiKey"]);
-      const key = stored.geminiApiKey;
+      const stored = await chrome.storage.sync.get(["anthropicApiKey"]);
+      const key = stored.anthropicApiKey;
       if (!key) {
         btn.textContent = "!";
         btn.title = "Set API Key in popup";
@@ -258,11 +258,11 @@ const autoRunScraper = async () => {
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const storedData = await chrome.storage.sync.get([
-    "geminiApiKey",
+    "anthropicApiKey",
     "showAnswers",
   ]);
   if (
-    storedData.geminiApiKey &&
+    storedData.anthropicApiKey &&
     (typeof storedData.showAnswers === "undefined" ||
       storedData.showAnswers === true)
   ) {
@@ -277,7 +277,7 @@ const autoRunScraper = async () => {
         "NetAcad Scraper: Critical - window.scrapeData not defined for auto-run and observer setup.",
       );
     }
-  } else if (storedData.geminiApiKey && storedData.showAnswers === false) {
+  } else if (storedData.anthropicApiKey && storedData.showAnswers === false) {
     console.debug(
       "NetAcad Scraper: showAnswers is disabled. Skipping initial scrape and observer.",
     );
